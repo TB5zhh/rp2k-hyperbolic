@@ -1,0 +1,3 @@
+[submodule "hyperbolic-image-embeddings"]
+	path = hyperbolic-image-embeddings
+	url = https://github.com/leymir/hyperbolic-image-embeddings.git
