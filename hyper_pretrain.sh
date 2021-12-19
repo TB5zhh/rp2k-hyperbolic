@@ -1,6 +1,6 @@
 WORKER=8
-BATCHSIZE=256
-LEARNINGRATE=0.001
+BATCHSIZE=128
+LEARNINGRATE=0.01
 
 python -m hyp2k.main_moco \
     --workers $WORKER \
@@ -11,8 +11,8 @@ python -m hyp2k.main_moco \
     --multiprocessing-distributed \
     --dist-url "tcp://127.0.0.1:12201" \
     --run-name "debug" \
+    --wandb \
     --hyper
 
-    # --wandb \
 
 
