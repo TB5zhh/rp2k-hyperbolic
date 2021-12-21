@@ -233,6 +233,8 @@ def main_worker(gpu, ngpus_per_node, args):
         wandb.init(project='hyp-moco', entity='air-sun')
         wandb.config.update(args)
         wandb.watch(model)
+        wandb.run.name = args.run_name
+        wandb.run.save()
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:

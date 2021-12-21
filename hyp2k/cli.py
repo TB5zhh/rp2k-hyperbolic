@@ -7,8 +7,6 @@ model_names = sorted(name for name in models.__dict__
 
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-    # parser.add_argument('data', metavar='DIR',
-    #                     help='path to dataset')
     parser.add_argument('-a',
                         '--arch',
                         metavar='ARCH',
@@ -75,12 +73,17 @@ def parse_args():
                         type=str,
                         metavar='PATH',
                         help='path to latest checkpoint (default: none)')
+    parser.add_argument('-e',
+                        '--evaluate',
+                        dest='evaluate',
+                        action='store_true',
+                        help='evaluate model on validation set')
     parser.add_argument('--world-size',
                         default=-1,
                         type=int,
                         help='number of nodes for distributed training')
     parser.add_argument('--rank',
-                        default=0,
+                        default=-1,
                         type=int,
                         help='node rank for distributed training')
     parser.add_argument('--dist-url',
@@ -155,5 +158,16 @@ def parse_args():
                         type=str,
                         default='/',
                         help='The dataset path')
+    parser.add_argument('--pretrained',
+                        default='',
+                        type=str,
+                        help='path to moco pretrained checkpoint')
+
+    parser.add_argument('--require_grad',
+                        type=str,
+                        default='linear',
+                        help='Train all network or train the linear layer only')
+    parser.add_argument('--conv_lr', type=float, default=1e-3)
+    parser.add_argument('--shots', type=int, default=10)
 
     return parser.parse_args()
