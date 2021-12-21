@@ -207,13 +207,13 @@ def main_worker(gpu, ngpus_per_node, args):
     # train_dataset = datasets.ImageFolder(
     #     traindir,
     #     moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))
-    if args.datset == 'RP2k':
+    if args.dataset == 'RP2k':
         train_dataset = RP2kDataset('/root/rp2k/data',
                                     'train',
                                     args,
                                     aug=augmentation)
     elif args.dataset == 'cifar100':
-        datasets.CIFAR100(args.dataset_dir, train=True, transform=augmentation)
+        train_dataset = datasets.CIFAR100(args.dataset_dir, train=True, transform=transforms.Compose(augmentation))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -230,7 +230,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                                drop_last=True)
 
     if args.wandb and args.rank == 0:
-        wandb.init(project='hyp-moco', entity='air-sun')
+        wandb.init(project='MoCo-CIFAR100', entity='air-sun')
         wandb.config.update(args)
         wandb.watch(model)
         wandb.run.name = args.run_name
