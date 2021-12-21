@@ -106,7 +106,7 @@ def main_worker(gpu, ngpus_per_node, args):
             if name not in ['fc.weight', 'fc.bias']:
                 param.requires_grad = False
     # init the fc layer
-    model.fc = torch.nn.Linear(in_features=512, out_features=2388, bias=True)
+    model.fc = torch.nn.Linear(in_features=2048, out_features=2388, bias=True)
     model.fc.weight.data.normal_(mean=0.0, std=0.01)
     model.fc.bias.data.zero_()
 
@@ -263,11 +263,11 @@ def main_worker(gpu, ngpus_per_node, args):
         return
 
     if args.wandb and args.rank == 0:
-        wandb.init(project='rp2k-finetune', entity='tb5zhh')
+        wandb.init(project='hyp-moco-finetune', entity='air-sun')
         wandb.config.update(args)
+        wandb.watch(model)
         wandb.run.name = args.run_name
         wandb.run.save()
-        # wandb.watch(model)
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
