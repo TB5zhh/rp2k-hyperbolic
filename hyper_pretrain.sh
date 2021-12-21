@@ -12,7 +12,8 @@ python -m hyp2k.main_moco \
     --dist-url "tcp://127.0.0.1:12201" \
     --run-name "debug" \
     --wandb \
-    --hyper
+    --dataset "cifar100" \
+    --dataset-dir "/home/aidrive/tb5zhh/data/cifar-100-python"
 
 
 
