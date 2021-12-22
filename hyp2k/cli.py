@@ -169,5 +169,5 @@ def parse_args():
                         help='Train all network or train the linear layer only')
     parser.add_argument('--conv_lr', type=float, default=1e-3)
     parser.add_argument('--shots', type=int, default=10)
-
+    parser.add_argument('--num-class', type=int, default=2388)
     return parser.parse_args()

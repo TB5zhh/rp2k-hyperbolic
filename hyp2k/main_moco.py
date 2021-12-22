@@ -251,6 +251,10 @@ def main_worker(gpu, ngpus_per_node, args):
                     },
                     is_best=False,
                     filename=f'checkpoint_{args.run_name}_{epoch:04d}.pth.tar')
+    if args.distributed:
+        dist.destroy_process_group()
+    if args.wandb and args.rank == 0:
+        wandb.finish()
 
 
 def train(train_loader, model, criterion, optimizer, scheduler, augment, epoch, args):

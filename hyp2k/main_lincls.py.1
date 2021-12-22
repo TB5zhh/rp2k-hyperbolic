@@ -104,7 +104,7 @@ def main_worker(gpu, ngpus_per_node, args):
             if name not in ['fc.weight', 'fc.bias']:
                 param.requires_grad = False
     # init the fc layer
-    model.fc = torch.nn.Linear(in_features=2048, out_features=args.num_class, bias=True)
+    model.fc = torch.nn.Linear(in_features=2048, out_features=2388, bias=True)
     model.fc.weight.data.normal_(mean=0.0, std=0.01)
     model.fc.bias.data.zero_()
 
@@ -214,7 +214,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #         transforms.ToTensor(),
     #         normalize,
     #     ]))
-    if args.dataset == 'RP2k':
+    if args.datset == 'RP2k':
         train_dataset = RP2kDataset(
             '/root/rp2k/data',
             'train',
@@ -261,7 +261,7 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.RandomResizedCrop(224),
     ])
 
-    if args.dataset == 'RP2k':
+    if args.data == 'RP2k':
         import json
         with open('/root/rp2k-moco/mapper.json', 'r') as f:
             mapper = torch.tensor(json.load(f))
@@ -285,7 +285,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                              pin_memory=True)
 
     if args.evaluate:
-        validate(val_loader, model, criterion, val_augmentation, args)
+        validate(val_loader, model, criterion, args, mapper)
         return
 
     if args.wandb and args.rank == 0:
@@ -300,11 +300,11 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, train_augmentation, args)
+        train(train_loader, model, criterion, optimizer, epoch, train_augmentation, args, mapper)
 
         if (epoch + 1) % 5 == 0:
             # evaluate on validation set
-            acc1 = validate(val_loader, model, criterion, val_augmentation, args)
+            acc1 = validate(val_loader, model, criterion, args, mapper)
 
             # remember best acc@1 and save checkpoint
             is_best = acc1 > best_acc1
@@ -335,15 +335,14 @@ def train(train_loader, model, criterion, optimizer, epoch, augment, args):
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
 
-    fine_top1 = AverageMeter('Fine-Acc@1', ':6.2f')
-    fine_top5 = AverageMeter('Fine-Acc@5', ':6.2f')
-    coarse_top1 = AverageMeter('Coarse-Acc@1', ':6.2f')
-    coarse_top5 = AverageMeter('Coarse-Acc@5', ':6.2f')
+    fine_top1 = AverageMeter('Acc@1', ':6.2f')
+    fine_top5 = AverageMeter('Acc@5', ':6.2f')
+    coarse_top1 = AverageMeter('Acc@1', ':6.2f')
+    coarse_top5 = AverageMeter('Acc@5', ':6.2f')
 
-    progress = ProgressMeter(
-        len(train_loader),
-        [batch_time, data_time, losses, fine_top1, fine_top5, coarse_top1, coarse_top5],
-        prefix="Epoch: [{}]".format(epoch))
+
+    progress = ProgressMeter(len(train_loader), [batch_time, data_time, losses, fine_top1, fine_top5, coarse_top1, coarse_top5],
+                             prefix="Epoch: [{}]".format(epoch))
     """
     Switch to eval mode:
     Under the protocol of linear classification on frozen features/models,
@@ -360,7 +359,7 @@ def train(train_loader, model, criterion, optimizer, epoch, augment, args):
         raise NotImplementedError()
 
     end = time.time()
-    for i, (image, fine_target, coarse_target) in enumerate(train_loader):
+    for i, (image, (fine_target, coarse_target)) in enumerate(train_loader):
         train_step += 1
         # measure data loading time
         data_time.update(time.time() - end)
@@ -381,13 +380,11 @@ def train(train_loader, model, criterion, optimizer, epoch, augment, args):
         fine_acc1, fine_acc5 = accuracy(output, fine_target, topk=(1, 5))
         fine_top1.update(fine_acc1[0], image.size(0))
         fine_top5.update(fine_acc5[0], image.size(0))
-
-        coarse_acc1, coarse_acc5 = accuracy(output,
-                                            coarse_target,
-                                            topk=(1, 5),
-                                            apply=train_loader.dataset.map)
+        
+        coarse_acc1, coarse_acc5 = accuracy(train_loader.dataset.map(output), coarse_target, topk=(1, 5))
         coarse_top1.update(coarse_acc1[0], image.size(0))
         coarse_top5.update(coarse_acc5[0], image.size(0))
+
 
         if args.wandb and args.rank == 0:
             wandb.log({
@@ -417,18 +414,14 @@ def train(train_loader, model, criterion, optimizer, epoch, augment, args):
             progress.display(i)
 
 
-def validate(val_loader, model, criterion, augment, args):
+def validate(val_loader, model, criterion, args, mapper):
     global val_step
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
-
-    fine_top1 = AverageMeter('Acc@1', ':6.2f')
-    fine_top5 = AverageMeter('Acc@5', ':6.2f')
-    coarse_top1 = AverageMeter('Acc@1', ':6.2f')
-    coarse_top5 = AverageMeter('Acc@5', ':6.2f')
-
-    progress = ProgressMeter(len(val_loader),
-                             [batch_time, losses, fine_top1, fine_top5, coarse_top1, coarse_top5],
+    top1 = AverageMeter('Acc@1', ':6.2f')
+    top5 = AverageMeter('Acc@5', ':6.2f')
+    coas = AverageMeter('CoarseAcc@1', ':6.2f')
+    progress = ProgressMeter(len(val_loader), [batch_time, losses, top1, top5, coas],
                              prefix='Test: ')
 
     # switch to evaluate mode
@@ -436,7 +429,7 @@ def validate(val_loader, model, criterion, augment, args):
 
     with torch.no_grad():
         end = time.time()
-        for i, (image, fine_target, coarse_target) in enumerate(val_loader):
+        for i, (image, (fine_target, coarse_target)) in enumerate(val_loader):
             val_step += 1
 
             if args.gpu is not None:
@@ -445,35 +438,25 @@ def validate(val_loader, model, criterion, augment, args):
             coarse_target = coarse_target.cuda(args.gpu, non_blocking=True)
 
             # compute output
-            output = model(image)
-            loss = criterion(output, fine_target)
-            losses.update(loss.item(), image.size(0))
+            output = model(images)
+            loss = criterion(output, target)
 
             # measure accuracy and record loss
-            # measure accuracy and record loss
-            fine_acc1, fine_acc5 = accuracy(output, fine_target, topk=(1, 5))
-            fine_top1.update(fine_acc1[0], image.size(0))
-            fine_top5.update(fine_acc5[0], image.size(0))
-
-            coarse_acc1, coarse_acc5 = accuracy(output,
-                                                coarse_target,
-                                                topk=(1, 5),
-                                                apply=val_loader.dataset.map)
-            coarse_top1.update(coarse_acc1[0], image.size(0))
-            coarse_top5.update(coarse_acc5[0], image.size(0))
+            acc1, acc5, coa = accuracy(output, target, topk=(1, 5), mapper=mapper)
+            losses.update(loss.item(), images.size(0))
+            top1.update(acc1[0], images.size(0))
+            top5.update(acc5[0], images.size(0))
+            coas.update(coa, images.size(0))
             if args.wandb and args.rank == 0:
                 wandb.log({
                     'val_loss': loss.item(),
+                    'val_acc1': acc1[0],
+                    'val_acc5_real': acc5[0],
+                    'val_coarse_acc': coa,
+                    'global_step': val_step,
                     'val_loss_avg': losses.avg,
-                    'val_fine_acc1': fine_acc1[0].item(),
-                    'val_fine_acc5': fine_acc5[0].item(),
-                    'val_fine_acc1_avg': fine_top1.avg,
-                    'val_fine_acc5_avg': fine_top5.avg,
-                    'val_coarse_acc1': coarse_acc1[0].item(),
-                    'val_coarse_acc5': coarse_acc5[0].item(),
-                    'val_coarse_acc1_avg': coarse_top1.avg,
-                    'val_coarse_acc5_avg': coarse_top5.avg,
-                    'val_step': val_step,
+                    'val_acc1_avg': top1.avg,
+                    'val_acc5': top5.avg,
                 })
 
             # measure elapsed time
@@ -483,7 +466,10 @@ def validate(val_loader, model, criterion, augment, args):
             if i % args.print_freq == 0:
                 progress.display(i)
 
-    return fine_top1.avg
+        # TODO: this should also be done with the ProgressMeter
+        print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
+
+    return top1.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
@@ -570,15 +556,13 @@ def adjust_learning_rate(optimizer, epoch, args):
         param_group['lr'] = lr
 
 
-def accuracy(output, target, topk=(1,), apply=None):
+def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
         batch_size = target.size(0)
 
         _, pred = output.topk(maxk, 1, True, True)
-        if apply is not None:
-            pred = apply(pred)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
@@ -591,3 +575,4 @@ def accuracy(output, target, topk=(1,), apply=None):
 
 if __name__ == '__main__':
     main()
+

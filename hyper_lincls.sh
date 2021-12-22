@@ -20,8 +20,14 @@ python -m hyp2k.main_lincls \
     --multiprocessing-distributed \
     --world-size 1 \
     --rank 0 \
-    --run_name $RUN_NAME \
+    --run-name "$RUN_NAME" \
     --require_grad all \
-    --pretrained checkpoints/checkpoint_debug_0020.pth.tar \
+    --dataset "cifar100" \
+    --dataset-dir "/home/aidrive/tb5zhh/data/" \
+    --pretrained "checkpoint_MoCo on CIFAR100 test_0195.pth.tar" \
+    --shots 20 \
+    --num-class 100 \
     --wandb \
-    --shots 20
+    --moco-dim 256
+
+
