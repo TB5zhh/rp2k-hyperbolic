@@ -20,10 +20,11 @@ python -m hyp2k.main_moco \
     --world-size 1 \
     --multiprocessing-distributed \
     --dist-url "tcp://127.0.0.1:12201" \
-    --run-name $RUN_NAME \
-    --wandb \
+    --run-name "$RUN_NAME" \
     --dataset "cifar100" \
-    --dataset-dir "/home/aidrive/tb5zhh/data/cifar-100-python"
-
+    --dataset-dir "/home/aidrive/tb5zhh/data/" \
+    --hyper \
+    --wandb \
+    --moco-dim 256
 
 

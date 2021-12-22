@@ -63,9 +63,7 @@ def main():
         args.world_size = ngpus_per_node * args.world_size
         # Use torch.multiprocessing.spawn to launch distributed processes: the
         # main_worker process function
-        mp.spawn(main_worker,
-                 nprocs=ngpus_per_node,
-                 args=(ngpus_per_node, args))
+        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
@@ -100,17 +98,17 @@ def main_worker(gpu, ngpus_per_node, args):
     print("=> creating model '{}'".format(args.arch))
     if args.hyper:
         model = HyperMoCoBuilder.HyperMoCo(models.__dict__[args.arch],
-                                args.moco_dim,
-                                args.moco_k,
-                                args.moco_m,
-                                args.moco_t,
-                                args.mlp,
-                                hyper=args.hyper,
-                                train_x=False,
-                                riemannian=True)
+                                           args.moco_dim,
+                                           args.moco_k,
+                                           args.moco_m,
+                                           args.moco_t,
+                                           args.mlp,
+                                           hyper=args.hyper,
+                                           train_x=False,
+                                           riemannian=True)
     else:
-        model = MoCoBuilder.MoCo(models.__dict__[args.arch], args.moco_dim,
-                                  args.moco_k, args.moco_m, args.moco_t, args.mlp)
+        model = MoCoBuilder.MoCo(models.__dict__[args.arch], args.moco_dim, args.moco_k,
+                                 args.moco_m, args.moco_t, args.mlp)
 
     print(model)
 
@@ -125,10 +123,8 @@ def main_worker(gpu, ngpus_per_node, args):
             # DistributedDataParallel, we need to divide the batch size
             # ourselves based on the total number of GPUs we have
             args.batch_size = int(args.batch_size / ngpus_per_node)
-            args.workers = int(
-                (args.workers + ngpus_per_node - 1) / ngpus_per_node)
-            model = torch.nn.parallel.DistributedDataParallel(
-                model, device_ids=[args.gpu])
+            args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         else:
             model.cuda()
             # DistributedDataParallel will divide and allocate batch_size to all
@@ -167,8 +163,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             scheduler.load_state_dict(checkpoint['scheduler'])
-            print("=> loaded checkpoint '{}' (epoch {})".format(
-                args.resume, checkpoint['epoch']))
+            print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
@@ -176,16 +171,14 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     # traindir = os.path.join(args.data, 'train')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     if args.aug_plus:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
         augmentation = [
             transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
             transforms.RandomApply(
                 [
-                    transforms.ColorJitter(0.4, 0.4, 0.4,
-                                           0.1)  # not strengthened
+                    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
                 ],
                 p=0.8),
             transforms.RandomGrayscale(p=0.2),
@@ -196,30 +189,31 @@ def main_worker(gpu, ngpus_per_node, args):
         ]
     else:
         # MoCo v1's aug: the same as InstDisc https://arxiv.org/abs/1805.01978
-        augmentation = [
+        augmentation = transforms.Compose([
             transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
             transforms.RandomGrayscale(p=0.2),
             transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(), normalize
-        ]
+            transforms.RandomHorizontalFlip(), normalize
+        ])
 
     # train_dataset = datasets.ImageFolder(
     #     traindir,
     #     moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))
     if args.dataset == 'RP2k':
-        train_dataset = RP2kDataset('/root/rp2k/data',
-                                    'train',
-                                    args,
-                                    aug=augmentation)
+        train_dataset = RP2kDataset('/root/rp2k/data', 'train', args, aug=augmentation)
     elif args.dataset == 'cifar100':
-        train_dataset = datasets.CIFAR100(args.dataset_dir, train=True, transform=transforms.Compose(augmentation))
+        train_dataset = datasets.CIFAR100(
+            args.dataset_dir,
+            train=True,
+            transform=transforms.Compose([
+                transforms.ToTensor(),
+            ]),
+        )
 
     if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_dataset)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     else:
-        train_sampler = None
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
 
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=args.batch_size,
@@ -242,13 +236,11 @@ def main_worker(gpu, ngpus_per_node, args):
         # adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, scheduler, epoch,
-              args)
+        train(train_loader, model, criterion, optimizer, scheduler, augmentation, epoch, args)
 
         if epoch % 5 == 0:
-            if not args.multiprocessing_distributed or (
-                    args.multiprocessing_distributed
-                    and args.rank % ngpus_per_node == 0):
+            if not args.multiprocessing_distributed or (args.multiprocessing_distributed and
+                                                        args.rank % ngpus_per_node == 0):
                 save_checkpoint(
                     {
                         'epoch': epoch + 1,
@@ -261,27 +253,26 @@ def main_worker(gpu, ngpus_per_node, args):
                     filename=f'checkpoint_{args.run_name}_{epoch:04d}.pth.tar')
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, augment, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
-    progress = ProgressMeter(len(train_loader),
-                             [batch_time, data_time, losses, top1, top5],
+    progress = ProgressMeter(len(train_loader), [batch_time, data_time, losses, top1, top5],
                              prefix="Epoch: [{}]".format(epoch))
-
+    print('start training')
     # switch to train mode
     model.train()
 
     end = time.time()
-    for i, (images, _) in enumerate(train_loader):
+    for i, (image, _) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
-
         if args.gpu is not None:
-            images[0] = images[0].cuda(args.gpu, non_blocking=True)
-            images[1] = images[1].cuda(args.gpu, non_blocking=True)
+            image = image.cuda(args.gpu, non_blocking=True).contiguous()
+        with torch.no_grad():
+            images = [augment(image), augment(image)]
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
@@ -332,6 +323,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
@@ -355,6 +347,7 @@ class AverageMeter(object):
 
 
 class ProgressMeter(object):
+
     def __init__(self, num_batches, meters, prefix=""):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
         self.meters = meters
@@ -385,7 +378,7 @@ def adjust_learning_rate(optimizer, epoch, args):
         param_group['lr'] = lr
 
 
-def accuracy(output, target, topk=(1, )):
+def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
