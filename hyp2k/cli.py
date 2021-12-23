@@ -170,4 +170,18 @@ def parse_args():
     parser.add_argument('--conv_lr', type=float, default=1e-3)
     parser.add_argument('--shots', type=int, default=10)
     parser.add_argument('--num-class', type=int, default=2388)
+    
+    parser.add_argument('--riemannian',
+                        action='store_true',
+                        help='use riemannian grad fix in hyperbolic space')
+    parser.add_argument('--train-c',
+                        action='store_true',
+                        help='train c in hyperbolic space')
+    parser.add_argument('--train-x',
+                        action='store_true',
+                        help='train x in hyperbolic space')
+    parser.add_argument('--c',
+                        type=float,
+                        default=1.0,
+                        help='negative curvature')
     return parser.parse_args()

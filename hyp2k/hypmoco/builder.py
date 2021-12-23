@@ -169,7 +169,7 @@ class HyperMoCo(nn.Module):
 
         # compute query features
         q = self.encoder_q(im_q)  # queries: NxC
-        q = nn.functional.normalize(q, dim=1)
+        # q = nn.functional.normalize(q, dim=1)
 
         # compute key features
         with torch.no_grad():  # no gradient to keys
@@ -179,7 +179,7 @@ class HyperMoCo(nn.Module):
             im_k, idx_unshuffle = self._batch_shuffle_ddp(im_k)
 
             k = self.encoder_k(im_k)  # keys: NxC
-            k = nn.functional.normalize(k, dim=1)
+            # k = nn.functional.normalize(k, dim=1)
 
             # undo shuffle
             k = self._batch_unshuffle_ddp(k, idx_unshuffle)

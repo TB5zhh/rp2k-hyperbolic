@@ -24,7 +24,7 @@ python -m hyp2k.main_moco \
     --dataset "cifar100" \
     --dataset-dir "/home/aidrive/tb5zhh/data/" \
     --hyper \
-    --wandb \
     --moco-dim 256
 
 
+    # --wandb \

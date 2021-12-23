@@ -7,6 +7,7 @@ import random
 
 import shutil
 import time
+from types import new_class
 import warnings
 from IPython import embed
 import torch
@@ -26,6 +27,8 @@ import wandb
 from .cli import parse_args
 from .data.rp2k import RP2kDataset
 from .data.CIFAR100 import CIFAR100
+
+from hyptorch import nn as hypnn
 
 best_acc1 = 0
 train_step = 0
@@ -104,9 +107,17 @@ def main_worker(gpu, ngpus_per_node, args):
             if name not in ['fc.weight', 'fc.bias']:
                 param.requires_grad = False
     # init the fc layer
-    model.fc = torch.nn.Linear(in_features=2048, out_features=args.num_class, bias=True)
-    model.fc.weight.data.normal_(mean=0.0, std=0.01)
-    model.fc.bias.data.zero_()
+    if args.hyper:
+        model.fc = torch.nn.ModuleList([
+            torch.nn.Linear(in_features=2048, out_features=args.moco_dim, bias=True),
+            hypnn.ToPoincare(args.c, False, False, args.moco_dim),
+            hypnn.HyperbolicMLR(ball_dim=args.moco_dim, n_classes=args.num_class, c=args.c),
+        ])
+
+    else:
+        model.fc = torch.nn.Linear(in_features=2048, out_features=args.num_class, bias=True)
+        model.fc.weight.data.normal_(mean=0.0, std=0.01)
+        model.fc.bias.data.zero_()
 
     # load from pre-trained, before DistributedDataParallel constructor
     if args.pretrained:
@@ -126,7 +137,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
             args.start_epoch = 0
             msg = model.load_state_dict(state_dict, strict=False)
-            assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
+            # assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}, msg.missing_keys
 
             print("=> loaded pre-trained model '{}'".format(args.pretrained))
         else:

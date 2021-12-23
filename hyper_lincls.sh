@@ -24,9 +24,10 @@ python -m hyp2k.main_lincls \
     --require_grad all \
     --dataset "cifar100" \
     --dataset-dir "/home/aidrive/tb5zhh/data/" \
-    --pretrained "checkpoint_MoCo on CIFAR100 test_0195.pth.tar" \
+    --pretrained "checkpoint_Hyper Moco on CIFAR100 test_0155.pth.tar" \
     --shots 20 \
     --num-class 100 \
+    --hyper \
     --wandb \
     --moco-dim 256
 

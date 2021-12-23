@@ -104,8 +104,10 @@ def main_worker(gpu, ngpus_per_node, args):
                                            args.moco_t,
                                            args.mlp,
                                            hyper=args.hyper,
-                                           train_x=False,
-                                           riemannian=True)
+                                           c=args.c,
+                                           train_x=args.train_x,
+                                           train_c=args.train_c,
+                                           riemannian=args.riemannian)
     else:
         model = MoCoBuilder.MoCo(models.__dict__[args.arch], args.moco_dim, args.moco_k,
                                  args.moco_m, args.moco_t, args.mlp)
@@ -280,6 +282,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, augment, epoch, 
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
+        print(output)
+        print(output.shape)
+        print(target)
         loss = criterion(output, target)
 
         def get_lr():
